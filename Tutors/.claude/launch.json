@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "D:\\Claude Code\\Sessions\\Tutors\\tutor-scheduler\\node_modules\\next\\dist\\bin\\next",
+        "dev",
+        "D:\\Claude Code\\Sessions\\Tutors\\tutor-scheduler"
+      ],
+      "port": 3000
+    }
+  ]
+}

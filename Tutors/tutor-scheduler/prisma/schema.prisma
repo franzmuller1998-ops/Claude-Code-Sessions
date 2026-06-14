@@ -1,0 +1,104 @@
+// Prisma schema — приложение для репетиторов.
+// Все даты хранятся в UTC. У каждого пользователя свой timezone для рендера.
+// SQLite не поддерживает enum и массивы:
+//   - статусы/роли/каналы храним строками (см. lib/constants.ts);
+//   - daysOfWeek — строка вида "1,3,5" (0=воскресенье ... 6=суббота).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tutor {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  passwordHash   String
+  timezone       String    @default("Europe/Moscow")
+  telegramChatId String? // для напоминаний репетитору
+  linkToken      String?   @unique // одноразовый токен привязки Telegram репетитора
+  linkedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  students    Student[]
+  lessons     Lesson[]
+  recurrences Recurrence[]
+}
+
+model Student {
+  id             String    @id @default(cuid())
+  tutorId        String
+  tutor          Tutor     @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  name           String
+  subject        String?
+  telegramChatId String?
+  timezone       String    @default("Europe/Moscow")
+  linkToken      String?   @unique // одноразовый токен для привязки Telegram
+  linkedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  lessons     Lesson[]
+  recurrences Recurrence[]
+
+  @@index([tutorId])
+}
+
+model Recurrence {
+  id          String    @id @default(cuid())
+  tutorId     String
+  tutor       Tutor     @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  daysOfWeek  String // "1,3,5" — номера дней недели (0=Вс ... 6=Сб)
+  timeOfDay   String // "HH:mm" в timezone репетитора
+  durationMin Int       @default(60)
+  subject     String?
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  lessons Lesson[]
+
+  @@index([tutorId])
+}
+
+model Lesson {
+  id           String      @id @default(cuid())
+  tutorId      String
+  tutor        Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  startAt      DateTime // UTC
+  durationMin  Int         @default(60)
+  subject      String?
+  status       String      @default("scheduled") // scheduled | completed | cancelled
+  recurrenceId String?
+  recurrence   Recurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  reminders Reminder[]
+
+  @@index([tutorId, startAt])
+  @@index([startAt])
+}
+
+model Reminder {
+  id          String    @id @default(cuid())
+  lessonId    String
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  recipient   String // tutor | student
+  remindAt    DateTime // UTC
+  offsetLabel String // напр. "за 24 ч", "за 1 ч"
+  channel     String    @default("telegram")
+  status      String    @default("pending") // pending | sent | failed
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([lessonId, recipient, remindAt]) // идемпотентность
+  @@index([status, remindAt])
+}

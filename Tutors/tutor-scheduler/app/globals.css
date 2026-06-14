@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  /* Тёплая пастельная тема: кремовый фон, тёплый тёмно-коричневый текст. */
+  --background: #fff7f2;
+  --foreground: #2d2620;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+/*
+ * Перекраска палитры Tailwind под «тёплую пастель». Все компоненты используют
+ * slate-* (нейтральные) и indigo-* (акцент), поэтому переопределение токенов
+ * перекрашивает весь интерфейс разом, без правки классов в разметке.
+ */
+@theme {
+  /* Нейтральные — тёплый тауп/коричневый вместо холодного slate. */
+  --color-slate-50: #fbf6f2;
+  --color-slate-100: #f4eae3;
+  --color-slate-200: #eaddd3;
+  --color-slate-300: #dcc9bc;
+  --color-slate-400: #bca89a;
+  --color-slate-500: #8e7c6f;
+  --color-slate-600: #6f5f53;
+  --color-slate-700: #574a40;
+  --color-slate-800: #423831;
+  --color-slate-900: #2d2620;
+
+  /* Акцент — коралловый вместо индиго (кнопки, ссылки, фокус). */
+  --color-indigo-50: #fbeae0;
+  --color-indigo-100: #f6d3c2;
+  --color-indigo-500: #e0703f;
+  --color-indigo-600: #d85a30;
+  --color-indigo-700: #bd4a24;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
