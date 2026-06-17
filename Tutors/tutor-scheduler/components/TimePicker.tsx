@@ -11,6 +11,15 @@ function splitValue(v: string): { h: string | null; m: string | null } {
   return { h: match[1], m: match[2] };
 }
 
+// Текущее время "HH:mm" с минутами, округлёнными вниз к ближайшим 5
+// (чтобы значение совпадало с одним из пунктов колонки минут).
+function currentTime(): string {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(Math.floor(now.getMinutes() / 5) * 5).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 /**
  * Кастомный пикер времени в стиле «Liquid Glass» вместо нативного
  * <input type="time"> (его всплывающее «колесо» нельзя стилизовать).
@@ -32,8 +41,21 @@ export default function TimePicker({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const hiddenRef = useRef<HTMLInputElement>(null);
+  const hoursRef = useRef<HTMLUListElement>(null);
+  const minutesRef = useRef<HTMLUListElement>(null);
 
   const { h, m } = splitValue(value);
+
+  // При открытии: если время ещё не выбрано — подставляем актуальное,
+  // и прокручиваем колонки к выбранным значениям. Ручной выбор (скроллинг)
+  // продолжает работать как раньше.
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (next && !value) setValue(currentTime());
+      return next;
+    });
+  };
 
   // Сброс вместе с формой: формы вызывают form.reset() после успешного сабмита.
   useEffect(() => {
@@ -64,6 +86,15 @@ export default function TimePicker({
     };
   }, [open]);
 
+  // Прокрутка колонок к выбранным значениям при открытии поповера.
+  useEffect(() => {
+    if (!open) return;
+    for (const list of [hoursRef.current, minutesRef.current]) {
+      const selected = list?.querySelector<HTMLElement>('[aria-current="true"]');
+      if (selected) selected.scrollIntoView({ block: "center" });
+    }
+  }, [open]);
+
   const pickHour = (hh: string) => setValue(`${hh}:${m ?? "00"}`);
   const pickMinute = (mm: string) => {
     setValue(`${h ?? "00"}:${mm}`);
@@ -76,7 +107,7 @@ export default function TimePicker({
       <button
         type="button"
         id={id}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         aria-haspopup="dialog"
         aria-expanded={open}
         className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -96,12 +127,13 @@ export default function TimePicker({
           aria-label="Выбор времени"
           className="absolute left-0 right-0 z-20 mt-1 flex gap-1 rounded-xl border border-white/60 bg-white/60 p-1.5 shadow-lg ring-1 ring-white/40 backdrop-blur-md"
         >
-          <ul className="max-h-56 flex-1 overflow-y-auto" aria-label="Часы">
+          <ul ref={hoursRef} className="max-h-56 flex-1 overflow-y-auto" aria-label="Часы">
             {HOURS.map((hh) => (
               <li key={hh}>
                 <button
                   type="button"
                   onClick={() => pickHour(hh)}
+                  aria-current={hh === h}
                   aria-label={`${hh} часов`}
                   className={[
                     "w-full rounded-md px-2 py-1.5 text-center text-sm transition-colors",
@@ -115,12 +147,13 @@ export default function TimePicker({
               </li>
             ))}
           </ul>
-          <ul className="max-h-56 flex-1 overflow-y-auto" aria-label="Минуты">
+          <ul ref={minutesRef} className="max-h-56 flex-1 overflow-y-auto" aria-label="Минуты">
             {MINUTES.map((mm) => (
               <li key={mm}>
                 <button
                   type="button"
                   onClick={() => pickMinute(mm)}
+                  aria-current={mm === m}
                   aria-label={`${mm} минут`}
                   className={[
                     "w-full rounded-md px-2 py-1.5 text-center text-sm transition-colors",

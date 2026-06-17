@@ -7,11 +7,17 @@ import { LessonStatus } from "@/lib/constants";
 import { connectTutorTelegramAction } from "@/app/actions/telegram";
 import CopyLink from "@/components/CopyLink";
 
+/** Минуты → часы для подписи: "8", "8,5". */
+function formatWorkedHours(minutes: number): string {
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace(".", ",");
+}
+
 export default async function DashboardPage() {
   const tutor = await requireTutor();
   const now = new Date();
 
-  const [studentCount, upcoming] = await Promise.all([
+  const [studentCount, upcoming, completedStats] = await Promise.all([
     prisma.student.count({ where: { tutorId: tutor.id } }),
     prisma.lesson.findMany({
       where: {
@@ -23,7 +29,16 @@ export default async function DashboardPage() {
       orderBy: { startAt: "asc" },
       take: 6,
     }),
+    // Проведённые занятия (статус Completed) — заполняется по кнопке «Проведено».
+    prisma.lesson.aggregate({
+      where: { tutorId: tutor.id, status: LessonStatus.Completed },
+      _count: true,
+      _sum: { durationMin: true },
+    }),
   ]);
+
+  const completedCount = completedStats._count;
+  const workedHours = formatWorkedHours(completedStats._sum.durationMin ?? 0);
 
   return (
     <div className="space-y-6">
@@ -56,7 +71,7 @@ export default async function DashboardPage() {
       </section>
 
       {/* Метрики — тёплые пастельные плитки */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="rounded-2xl bg-[#fbeae0] p-5">
           <div className="text-3xl font-semibold text-[#712b13]">{studentCount}</div>
           <div className="text-sm text-[#99603f]">Учеников</div>
@@ -70,6 +85,11 @@ export default async function DashboardPage() {
           <div className="text-sm text-[#993556]">
             Часовой пояс (UTC{tzOffsetLabel(tutor.timezone)})
           </div>
+        </div>
+        <div className="rounded-2xl bg-[#eaf3de] p-5">
+          <div className="text-3xl font-semibold text-[#27500a]">{completedCount}</div>
+          <div className="text-sm text-[#3b6d11]">Проведено занятий</div>
+          <div className="mt-1 text-xs text-[#527a1e]">{workedHours} ч отработано</div>
         </div>
       </div>
 

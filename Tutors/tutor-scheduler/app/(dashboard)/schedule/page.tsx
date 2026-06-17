@@ -53,7 +53,7 @@ export default async function SchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Расписание</h1>
         <span className="text-sm text-slate-500">
           Время в вашем поясе: {tutor.timezone} (UTC{tzOffsetLabel(tutor.timezone)})

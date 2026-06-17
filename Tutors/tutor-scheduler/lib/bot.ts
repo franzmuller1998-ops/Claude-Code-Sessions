@@ -27,15 +27,20 @@ function registerHandlers(bot: Bot) {
       return;
     }
 
+    const username = ctx.from?.username ?? null;
+
     // Токен может принадлежать ученику или репетитору.
     const student = await prisma.student.findUnique({ where: { linkToken: token } });
     if (student) {
       await prisma.student.update({
         where: { id: student.id },
-        data: { telegramChatId: chatId, linkedAt: new Date(), linkToken: null },
+        data: { telegramChatId: chatId, telegramUsername: username, linkedAt: new Date(), linkToken: null },
       });
       await ctx.reply(
         `Готово, ${student.name}! 📚\nТеперь напоминания о занятиях будут приходить сюда.`,
+      );
+      await notifyAdmin(
+        `👤 Ученик привязал Telegram: ${student.name} (${formatHandle(username)}).`,
       );
       return;
     }
@@ -44,10 +49,13 @@ function registerHandlers(bot: Bot) {
     if (tutor) {
       await prisma.tutor.update({
         where: { id: tutor.id },
-        data: { telegramChatId: chatId, linkedAt: new Date(), linkToken: null },
+        data: { telegramChatId: chatId, telegramUsername: username, linkedAt: new Date(), linkToken: null },
       });
       await ctx.reply(
         `Готово, ${tutor.name}! ✅\nВы будете получать напоминания о своих занятиях здесь.`,
+      );
+      await notifyAdmin(
+        `🧑‍🏫 Репетитор привязал Telegram: ${tutor.name} (${formatHandle(username)}).`,
       );
       return;
     }
@@ -61,6 +69,12 @@ function registerHandlers(bot: Bot) {
     await ctx.reply(
       "Я напоминаю о занятиях. Привязка происходит по персональной ссылке-приглашению от репетитора.",
     );
+  });
+
+  // Служебная команда: узнать свой chat_id (нужно для ADMIN_TELEGRAM_CHAT_ID).
+  bot.command("id", async (ctx) => {
+    const handle = ctx.from?.username ? ` (@${ctx.from.username})` : "";
+    await ctx.reply(`Ваш chat_id: ${ctx.chat.id}${handle}`);
   });
 
   // Ученик подтверждает занятие.
@@ -102,6 +116,21 @@ async function notifyTutor(lessonId: string, build: (who: string, when: string) 
   const bot = getBot();
   if (!bot) return;
   await bot.api.sendMessage(lesson.tutor.telegramChatId, build(lesson.student.name, when));
+}
+
+/** "@username" или "без username" — для текстов уведомлений. */
+export function formatHandle(username: string | null | undefined): string {
+  return username ? `@${username}` : "без username";
+}
+
+/**
+ * Шлёт уведомление администратору (владельцу). Молча пропускается, если
+ * ADMIN_TELEGRAM_CHAT_ID не задан. Узнать свой chat_id: команда /id боту.
+ */
+export async function notifyAdmin(text: string): Promise<void> {
+  const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+  if (!adminChatId) return;
+  await sendTelegramMessage(adminChatId, text);
 }
 
 /** Клавиатура подтверждения для напоминания ученику. */

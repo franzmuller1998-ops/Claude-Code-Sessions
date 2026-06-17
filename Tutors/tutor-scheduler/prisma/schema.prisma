@@ -1,6 +1,7 @@
-// Prisma schema — приложение для репетиторов.
+// Prisma schema — приложение для репетиторов. БД: PostgreSQL.
 // Все даты хранятся в UTC. У каждого пользователя свой timezone для рендера.
-// SQLite не поддерживает enum и массивы:
+// Исторически (со времён SQLite) статусы/роли/каналы и дни недели хранятся
+// строками — оставлено ради переносимости и совместимости с данными:
 //   - статусы/роли/каналы храним строками (см. lib/constants.ts);
 //   - daysOfWeek — строка вида "1,3,5" (0=воскресенье ... 6=суббота).
 
@@ -10,7 +11,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -21,6 +22,7 @@ model Tutor {
   passwordHash   String
   timezone       String    @default("Europe/Moscow")
   telegramChatId String? // для напоминаний репетитору
+  telegramUsername String? // @username из Telegram (сохраняется при привязке)
   linkToken      String?   @unique // одноразовый токен привязки Telegram репетитора
   linkedAt       DateTime?
   createdAt      DateTime  @default(now())
@@ -37,6 +39,7 @@ model Student {
   name           String
   subject        String?
   telegramChatId String?
+  telegramUsername String? // @username из Telegram (сохраняется при привязке)
   timezone       String    @default("Europe/Moscow")
   linkToken      String?   @unique // одноразовый токен для привязки Telegram
   linkedAt       DateTime?

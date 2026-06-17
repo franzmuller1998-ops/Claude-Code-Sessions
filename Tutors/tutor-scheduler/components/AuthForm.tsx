@@ -5,23 +5,39 @@ import Link from "next/link";
 import { registerAction, loginAction, type AuthState } from "@/app/actions/auth";
 import { COMMON_TIMEZONES } from "@/lib/constants";
 
-const input =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
 const label = "block text-sm font-medium text-slate-700 mb-1";
 
-export default function AuthForm({ mode }: { mode: "login" | "register" }) {
+export default function AuthForm({
+  mode,
+  glass = false,
+}: {
+  mode: "login" | "register";
+  glass?: boolean;
+}) {
   const action = mode === "register" ? registerAction : loginAction;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(
     action,
     {},
   );
 
+  // Полупрозрачные «стеклянные» поля поверх видео либо обычные на странице регистрации.
+  const input = glass
+    ? "w-full rounded-lg border border-white/50 bg-white/40 px-3 py-2 text-sm text-slate-900 placeholder-slate-500 backdrop-blur-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+    : "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+
+  const card = glass
+    ? "w-full max-w-sm rounded-3xl border border-white/50 bg-[#efe2cf]/40 p-8 shadow-2xl ring-1 ring-white/30 backdrop-blur-xl"
+    : "w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm";
+
+  // На стекле приглушённый текст темнее — иначе теряет контраст поверх видео.
+  const subtle = glass ? "text-slate-700" : "text-slate-500";
+
   return (
-    <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className={card}>
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">
         {mode === "register" ? "Регистрация репетитора" : "Вход"}
       </h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <p className={`mb-6 text-sm ${subtle}`}>
         {mode === "register"
           ? "Создайте аккаунт, чтобы вести расписание."
           : "Войдите в свой кабинет."}
@@ -102,7 +118,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-500">
+      <p className={`mt-6 text-center text-sm ${subtle}`}>
         {mode === "register" ? (
           <>
             Уже есть аккаунт?{" "}

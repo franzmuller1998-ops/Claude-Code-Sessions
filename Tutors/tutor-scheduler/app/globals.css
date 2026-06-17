@@ -17,6 +17,10 @@
  * перекрашивает весь интерфейс разом, без правки классов в разметке.
  */
 @theme {
+  /* Основной шрифт интерфейса — дружелюбный округлый Nunito (self-hosted). */
+  --font-sans: "Nunito Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Arial, sans-serif;
+
   /* Нейтральные — тёплый тауп/коричневый вместо холодного slate. */
   --color-slate-50: #fbf6f2;
   --color-slate-100: #f4eae3;
@@ -40,5 +44,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-sans);
 }

@@ -8,6 +8,7 @@ import {
   createSession,
   destroySession,
 } from "@/lib/auth";
+import { notifyAdmin } from "@/lib/bot";
 
 export type AuthState = { error?: string };
 
@@ -29,6 +30,10 @@ export async function registerAction(
   const tutor = await prisma.tutor.create({
     data: { name, email, passwordHash: await hashPassword(password), timezone },
   });
+
+  // Уведомить администратора о новой регистрации (без @username — Telegram
+  // репетитор ещё не привязал; @username придёт отдельным уведомлением при привязке).
+  await notifyAdmin(`🆕 Новый репетитор зарегистрировался: ${tutor.name} (${email}).`);
 
   await createSession(tutor.id);
   redirect("/dashboard");

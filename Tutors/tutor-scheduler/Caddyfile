@@ -1,0 +1,24 @@
+# Caddy reverse-proxy для tutor-scheduler.
+# Caddy сам получает и продлевает TLS-сертификат (Let's Encrypt) — нужен только
+# домен с A-записью на IP сервера и открытые порты 80/443.
+#
+# Установка пути: /etc/caddy/Caddyfile
+# Применить:      sudo systemctl reload caddy
+#
+# Замените example.ru на ваш домен (он же должен быть в APP_URL и
+# NEXT_PUBLIC_BOT_USERNAME-ссылках).
+
+example.ru {
+	encode zstd gzip
+
+	# Длинный кэш для статики Next.js (хэшируется при сборке).
+	@static path /_next/static/*
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	reverse_proxy 127.0.0.1:3000
+}
+
+# Редирект с www на голый домен (необязательно — удалите, если не нужен).
+www.example.ru {
+	redir https://example.ru{uri} permanent
+}
