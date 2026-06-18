@@ -45,7 +45,7 @@ export default function VideoBackground() {
       <video
         ref={videoRef}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        src="/tutor_vid_lowQ.mp4"
+        src="/tutor_vid_h264_new.mp4"
         autoPlay
         loop
         muted
