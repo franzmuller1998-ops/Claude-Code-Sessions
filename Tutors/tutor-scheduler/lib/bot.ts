@@ -1,6 +1,14 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, Context, InlineKeyboard } from "grammy";
 import { prisma } from "@/lib/prisma";
 import { formatLessonTime } from "@/lib/time";
+import { generateTelegramCode, registerUrl, siteUrl } from "@/lib/tokens";
+
+// Через сколько истекает код привязки, выданный ботом.
+const LINK_CODE_TTL_MS = 30 * 60 * 1000;
+
+// Payload'ы ссылки t.me/<bot>?start=..., которые ведут на онбординг (а не привязку
+// по токену). Пустой payload (просто /start) тоже сюда.
+const ONBOARDING_PAYLOADS = new Set(["", "promo", "register"]);
 
 // Ленивая инициализация: бот создаётся только при наличии токена.
 let _bot: Bot | null = null;
@@ -17,17 +25,15 @@ export function getBot(): Bot | null {
 function registerHandlers(bot: Bot) {
   // Привязка по токену из ссылки t.me/<bot>?start=<token>.
   bot.command("start", async (ctx) => {
-    const token = ctx.match?.trim();
+    const token = ctx.match?.trim() ?? "";
     const chatId = String(ctx.chat.id);
+    const username = ctx.from?.username ?? null;
 
-    if (!token) {
-      await ctx.reply(
-        "Привет! 👋\nЧтобы получать напоминания о занятиях, откройте персональную ссылку-приглашение от репетитора.",
-      );
+    // Онбординг (заход из рекламы / просто /start) — выдаём код для регистрации.
+    if (ONBOARDING_PAYLOADS.has(token)) {
+      await handleOnboarding(ctx, chatId, username);
       return;
     }
-
-    const username = ctx.from?.username ?? null;
 
     // Токен может принадлежать ученику или репетитору. Списываем токен атомарно
     // через updateMany с linkToken в WHERE: при повторной доставке того же
@@ -96,7 +102,9 @@ function registerHandlers(bot: Bot) {
 
   bot.command("help", async (ctx) => {
     await ctx.reply(
-      "Я напоминаю о занятиях. Привязка происходит по персональной ссылке-приглашению от репетитора.",
+      "Я напоминаю о занятиях.\n" +
+        "• Репетитор: отправьте /start — я выдам код для регистрации на сайте.\n" +
+        "• Ученик: откройте персональную ссылку-приглашение от репетитора.",
     );
   });
 
@@ -124,6 +132,57 @@ function registerHandlers(bot: Bot) {
     );
     await safeEditReplyMarkup(ctx);
   });
+}
+
+/**
+ * Онбординг при заходе из рекламы / просто /start. Если репетитор/ученик уже
+ * привязан — показываем статус; иначе выдаём одноразовый код и кнопку регистрации
+ * (код вводится на сайте и сразу привязывает Telegram).
+ */
+async function handleOnboarding(
+  ctx: Context,
+  chatId: string,
+  username: string | null,
+) {
+  const [linkedTutor, linkedStudent] = await Promise.all([
+    prisma.tutor.findFirst({ where: { telegramChatId: chatId } }),
+    prisma.student.findFirst({ where: { telegramChatId: chatId } }),
+  ]);
+
+  if (linkedTutor) {
+    await ctx.reply(
+      `Вы уже зарегистрированы, ${linkedTutor.name} ✅\nНапоминания о занятиях приходят сюда.`,
+      { reply_markup: new InlineKeyboard().url("Открыть кабинет", siteUrl("/login")) },
+    );
+    return;
+  }
+
+  if (linkedStudent) {
+    await ctx.reply(
+      "✅ Вы подключены как ученик — напоминания о занятиях будут приходить сюда.",
+    );
+    return;
+  }
+
+  // Новый пользователь: выдаём одноразовый код для регистрации.
+  const code = generateTelegramCode();
+  const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MS);
+  await prisma.telegramLinkCode.upsert({
+    where: { chatId },
+    update: { code, username, expiresAt },
+    create: { chatId, username, code, expiresAt },
+  });
+
+  await ctx.reply(
+    "Привет! 👋 Это бот напоминаний о занятиях для репетиторов.\n\n" +
+      "Чтобы начать, зарегистрируйтесь на сайте и введите этот код — Telegram подключится автоматически:\n\n" +
+      `🔑 Ваш код: <code>${code}</code>\n` +
+      "⏳ Код действует 30 минут.",
+    {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard().url("Зарегистрироваться", registerUrl(code)),
+    },
+  );
 }
 
 async function safeEditReplyMarkup(ctx: { editMessageReplyMarkup: () => Promise<unknown> }) {

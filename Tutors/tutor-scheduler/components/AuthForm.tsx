@@ -10,9 +10,11 @@ const label = "block text-sm font-medium text-slate-700 mb-1";
 export default function AuthForm({
   mode,
   glass = false,
+  defaultCode,
 }: {
   mode: "login" | "register";
   glass?: boolean;
+  defaultCode?: string;
 }) {
   const action = mode === "register" ? registerAction : loginAction;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(
@@ -96,6 +98,25 @@ export default function AuthForm({
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {mode === "register" && (
+          <div>
+            <label className={label} htmlFor="tgCode">
+              Код из Telegram (необязательно)
+            </label>
+            <input
+              id="tgCode"
+              name="tgCode"
+              className={input}
+              defaultValue={defaultCode}
+              placeholder="напр. ABC123"
+              autoComplete="off"
+            />
+            <p className={`mt-1 text-xs ${subtle}`}>
+              Введите код из бота, чтобы сразу подключить Telegram для напоминаний.
+            </p>
           </div>
         )}
 

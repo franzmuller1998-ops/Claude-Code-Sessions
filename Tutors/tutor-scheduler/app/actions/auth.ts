@@ -8,7 +8,7 @@ import {
   createSession,
   destroySession,
 } from "@/lib/auth";
-import { notifyAdmin } from "@/lib/bot";
+import { notifyAdmin, formatHandle } from "@/lib/bot";
 
 export type AuthState = { error?: string };
 
@@ -20,6 +20,7 @@ export async function registerAction(
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
   const timezone = String(formData.get("timezone") || "Europe/Moscow");
+  const tgCode = String(formData.get("tgCode") || "").trim().toUpperCase();
 
   if (!name || !email || !password) return { error: "Заполните все поля." };
   if (password.length < 6) return { error: "Пароль должен быть не короче 6 символов." };
@@ -31,9 +32,36 @@ export async function registerAction(
     data: { name, email, passwordHash: await hashPassword(password), timezone },
   });
 
-  // Уведомить администратора о новой регистрации (без @username — Telegram
-  // репетитор ещё не привязал; @username придёт отдельным уведомлением при привязке).
-  await notifyAdmin(`🆕 Новый репетитор зарегистрировался: ${tutor.name} (${email}).`);
+  // Если введён код из бота и он не просрочен — сразу привязываем Telegram.
+  let linkedHandle: string | null = null;
+  let telegramLinked = false;
+  if (tgCode) {
+    const link = await prisma.telegramLinkCode.findUnique({ where: { code: tgCode } });
+    if (link && link.expiresAt > new Date()) {
+      // Снимаем этот chatId с других репетиторов, чтобы не дублировать напоминания.
+      await prisma.tutor.updateMany({
+        where: { telegramChatId: link.chatId, NOT: { id: tutor.id } },
+        data: { telegramChatId: null },
+      });
+      await prisma.tutor.update({
+        where: { id: tutor.id },
+        data: {
+          telegramChatId: link.chatId,
+          telegramUsername: link.username,
+          linkedAt: new Date(),
+        },
+      });
+      await prisma.telegramLinkCode.delete({ where: { id: link.id } });
+      telegramLinked = true;
+      linkedHandle = link.username;
+    }
+  }
+
+  await notifyAdmin(
+    telegramLinked
+      ? `🆕 Новый репетитор: ${tutor.name} (${email}), Telegram ${formatHandle(linkedHandle)} ✅`
+      : `🆕 Новый репетитор зарегистрировался: ${tutor.name} (${email}).`,
+  );
 
   await createSession(tutor.id);
   redirect("/dashboard");

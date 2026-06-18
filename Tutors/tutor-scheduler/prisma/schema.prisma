@@ -105,3 +105,15 @@ model Reminder {
   @@unique([lessonId, recipient, remindAt]) // идемпотентность
   @@index([status, remindAt])
 }
+
+// Одноразовый код привязки Telegram при регистрации репетитора.
+// Бот при открытии (онбординг из рекламы) выдаёт код, привязанный к chatId;
+// репетитор вводит его при регистрации на сайте — и Telegram подключается сразу.
+model TelegramLinkCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  chatId    String   @unique // один активный код на чат (upsert по chatId)
+  username  String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
