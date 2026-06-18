@@ -101,22 +101,19 @@ export default function AuthForm({
           </div>
         )}
 
-        {mode === "register" && (
+        {mode === "register" && defaultCode && (
           <div>
             <label className={label} htmlFor="tgCode">
-              Код из Telegram (необязательно)
+              Код из Telegram
             </label>
             <input
               id="tgCode"
               name="tgCode"
-              className={input}
+              className={`${input} cursor-not-allowed`}
               defaultValue={defaultCode}
-              placeholder="напр. ABC123"
+              readOnly
               autoComplete="off"
             />
-            <p className={`mt-1 text-xs ${subtle}`}>
-              Введите код из бота, чтобы сразу подключить Telegram для напоминаний.
-            </p>
           </div>
         )}
 
