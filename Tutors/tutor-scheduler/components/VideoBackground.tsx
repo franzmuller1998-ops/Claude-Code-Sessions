@@ -7,7 +7,7 @@ export default function VideoBackground() {
     <>
       <video
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        src="/tutor_vid.mov"
+        src="/tutor_vid_lowQ.mp4"
         autoPlay
         loop
         muted

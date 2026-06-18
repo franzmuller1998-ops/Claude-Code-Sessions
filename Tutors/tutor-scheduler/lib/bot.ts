@@ -29,33 +29,62 @@ function registerHandlers(bot: Bot) {
 
     const username = ctx.from?.username ?? null;
 
-    // Токен может принадлежать ученику или репетитору.
+    // Токен может принадлежать ученику или репетитору. Списываем токен атомарно
+    // через updateMany с linkToken в WHERE: при повторной доставке того же
+    // апдейта (ретрай вебхука / переподключение polling-воркера) выигрывает
+    // ровно одна попытка (count === 1), остальные получают count === 0 — и мы
+    // не отвечаем повторно «ссылка недействительна» на уже привязанную ссылку.
+    const data = {
+      telegramChatId: chatId,
+      telegramUsername: username,
+      linkedAt: new Date(),
+      linkToken: null,
+    };
+
     const student = await prisma.student.findUnique({ where: { linkToken: token } });
     if (student) {
-      await prisma.student.update({
-        where: { id: student.id },
-        data: { telegramChatId: chatId, telegramUsername: username, linkedAt: new Date(), linkToken: null },
+      const claimed = await prisma.student.updateMany({
+        where: { id: student.id, linkToken: token },
+        data,
       });
-      await ctx.reply(
-        `Готово, ${student.name}! 📚\nТеперь напоминания о занятиях будут приходить сюда.`,
-      );
-      await notifyAdmin(
-        `👤 Ученик привязал Telegram: ${student.name} (${formatHandle(username)}).`,
-      );
+      if (claimed.count === 1) {
+        await ctx.reply(
+          `Готово, ${student.name}! 📚\nТеперь напоминания о занятиях будут приходить сюда.`,
+        );
+        await notifyAdmin(
+          `👤 Ученик привязал Telegram: ${student.name} (${formatHandle(username)}).`,
+        );
+      }
       return;
     }
 
     const tutor = await prisma.tutor.findUnique({ where: { linkToken: token } });
     if (tutor) {
-      await prisma.tutor.update({
-        where: { id: tutor.id },
-        data: { telegramChatId: chatId, telegramUsername: username, linkedAt: new Date(), linkToken: null },
+      const claimed = await prisma.tutor.updateMany({
+        where: { id: tutor.id, linkToken: token },
+        data,
       });
+      if (claimed.count === 1) {
+        await ctx.reply(
+          `Готово, ${tutor.name}! ✅\nВы будете получать напоминания о своих занятиях здесь.`,
+        );
+        await notifyAdmin(
+          `🧑‍🏫 Репетитор привязал Telegram: ${tutor.name} (${formatHandle(username)}).`,
+        );
+      }
+      return;
+    }
+
+    // Токен не найден. Это либо устаревшая/чужая ссылка, либо повторная доставка
+    // уже обработанного апдете (токен только что списан). Если этот чат уже
+    // привязан — значит ссылка сработала, не пугаем пользователя ошибкой.
+    const [linkedTutor, linkedStudent] = await Promise.all([
+      prisma.tutor.findFirst({ where: { telegramChatId: chatId } }),
+      prisma.student.findFirst({ where: { telegramChatId: chatId } }),
+    ]);
+    if (linkedTutor || linkedStudent) {
       await ctx.reply(
-        `Готово, ${tutor.name}! ✅\nВы будете получать напоминания о своих занятиях здесь.`,
-      );
-      await notifyAdmin(
-        `🧑‍🏫 Репетитор привязал Telegram: ${tutor.name} (${formatHandle(username)}).`,
+        "✅ Вы уже подключены — напоминания о занятиях будут приходить сюда.",
       );
       return;
     }
