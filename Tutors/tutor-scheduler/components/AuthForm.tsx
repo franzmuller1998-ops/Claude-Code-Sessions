@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { registerAction, loginAction, type AuthState } from "@/app/actions/auth";
 import { COMMON_TIMEZONES } from "@/lib/constants";
@@ -34,6 +34,13 @@ export default function AuthForm({
   // На стекле приглушённый текст темнее — иначе теряет контраст поверх видео.
   const subtle = glass ? "text-slate-700" : "text-slate-500";
 
+  // Часовой пояс показываем только после заполнения основных полей регистрации.
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const allFilled =
+    name.trim() !== "" && email.trim() !== "" && password.trim() !== "";
+
   return (
     <div className={card}>
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">
@@ -51,7 +58,13 @@ export default function AuthForm({
             <label className={label} htmlFor="name">
               Имя
             </label>
-            <input id="name" name="name" className={input} autoComplete="name" />
+            <input
+              id="name"
+              name="name"
+              className={input}
+              autoComplete="name"
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
         )}
 
@@ -65,6 +78,7 @@ export default function AuthForm({
             type="email"
             className={input}
             autoComplete="email"
+            onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
@@ -78,10 +92,11 @@ export default function AuthForm({
             type="password"
             className={input}
             autoComplete={mode === "register" ? "new-password" : "current-password"}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 
-        {mode === "register" && (
+        {mode === "register" && allFilled && (
           <div>
             <label className={label} htmlFor="timezone">
               Часовой пояс
@@ -101,20 +116,9 @@ export default function AuthForm({
           </div>
         )}
 
+        {/* Код привязки Telegram — скрыт от пользователя, уходит с формой. */}
         {mode === "register" && defaultCode && (
-          <div>
-            <label className={label} htmlFor="tgCode">
-              Код из Telegram
-            </label>
-            <input
-              id="tgCode"
-              name="tgCode"
-              className={`${input} cursor-not-allowed`}
-              defaultValue={defaultCode}
-              readOnly
-              autoComplete="off"
-            />
-          </div>
+          <input type="hidden" name="tgCode" value={defaultCode} />
         )}
 
         {state.error && (
